@@ -87,12 +87,12 @@
       <form id="recordForm" method="dialog" class="dialog-card">
         <div class="panel-head">
           <h2 id="dialogTitle">Record</h2>
-          <button class="icon-btn" value="cancel" aria-label="Close">x</button>
+          <button class="icon-btn" type="button" data-dialog-close aria-label="Close">x</button>
         </div>
         <div id="formFields" class="form-grid"></div>
         <menu>
-          <button class="ghost-btn" value="cancel">Cancel</button>
-          <button id="saveRecordBtn" class="primary-btn" value="default">Save</button>
+          <button class="ghost-btn" type="button" data-dialog-close>Cancel</button>
+          <button id="saveRecordBtn" class="primary-btn" type="submit">Save</button>
         </menu>
       </form>
     </dialog>

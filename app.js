@@ -23,6 +23,14 @@ const schemas = {
   "Checklist Template": ["question_id", "category", "question_text", "required", "active"]
 };
 
+const userFormFields = ["username", "full_name", "password", "confirm_password", "profile_image", "email", "phone_number", "user_role", "business_id", "location_id", "account_status"];
+const userStatusOptions = [
+  ["active", "Active"],
+  ["desactive", "Desactive"],
+  ["locked", "Locked"]
+];
+const userRoleOptions = ["Admin", "Area Manager", "Manager", "Supervisor", "Operator"];
+
 const demoData = {
   Businesses: [
     { business_id: "biz_001", business_name: "Northline Warehousing", contact_person: "Ada Flores", contact_email: "ops@northline.example", business_status: "active" }
@@ -73,6 +81,9 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#searchInput")?.addEventListener("input", renderTable);
   $("#newRecordBtn")?.addEventListener("click", () => openRecordDialog());
   $("#recordForm")?.addEventListener("submit", saveRecord);
+  document.querySelectorAll("[data-dialog-close]").forEach((button) => {
+    button.addEventListener("click", () => $("#recordDialog").close());
+  });
 });
 
 async function api(action, payload = {}) {
@@ -111,7 +122,7 @@ async function demoApi(action, payload) {
   if (action === "archive") {
     const key = schemas[payload.sheet][0];
     const row = state.records[payload.sheet].find((item) => item[key] === payload.id);
-    if (row) row.status = "archived";
+    if (row) row[statusFieldFor(payload.sheet)] = "archived";
     return { ok: true };
   }
   if (action === "uploadFile") {
@@ -177,7 +188,9 @@ async function switchModule(module) {
   if (module === "dashboard") {
     renderDashboard();
   } else {
-    $("#newRecordBtn").classList.toggle("hidden", module === "inspections" && state.session.user.user_role === "Operator");
+    const usersLocked = module === "users" && !isAdmin();
+    const operatorInspectionLocked = module === "inspections" && state.session.user.user_role === "Operator";
+    $("#newRecordBtn").classList.toggle("hidden", usersLocked || operatorInspectionLocked);
     loadSheet(modules[module].sheet);
   }
 }
@@ -308,12 +321,16 @@ function renderTable() {
   const columns = schemas[sheet];
   const term = $("#searchInput").value.toLowerCase();
   const rows = (state.records[sheet] || []).filter((row) => JSON.stringify(row).toLowerCase().includes(term));
+  const canEditUsers = sheet !== "Users" || isAdmin();
 
   $("#tableHead").innerHTML = `<tr>${columns.slice(0, 8).map((column) => `<th>${humanize(column)}</th>`).join("")}<th>Actions</th></tr>`;
   $("#tableBody").innerHTML = rows.map((row) => {
     const key = columns[0];
     const cells = columns.slice(0, 8).map((column) => `<td>${formatCell(column, row[column])}</td>`).join("");
-    return `<tr>${cells}<td class="actions"><button class="ghost-btn" data-edit="${row[key]}">Edit</button></td></tr>`;
+    const actions = canEditUsers
+      ? `<button class="ghost-btn" data-edit="${escapeAttr(row[key])}">Edit</button>${sheet === "Users" ? ` <button class="danger-btn ghost-btn" data-delete="${escapeAttr(row[key])}">Delete</button>` : ""}`
+      : "";
+    return `<tr>${cells}<td class="actions">${actions}</td></tr>`;
   }).join("");
 
   $("#tableBody").querySelectorAll("[data-edit]").forEach((button) => {
@@ -323,52 +340,142 @@ function renderTable() {
       openRecordDialog(row);
     });
   });
+  $("#tableBody").querySelectorAll("[data-delete]").forEach((button) => {
+    button.addEventListener("click", () => deleteRecord(button.dataset.delete));
+  });
 }
 
-function openRecordDialog(record = null) {
+async function openRecordDialog(record = null) {
   const sheet = modules[state.activeModule].sheet;
+  if (sheet === "Users" && !isAdmin()) return;
   state.editingRecord = record;
   $("#dialogTitle").textContent = `${record ? "Edit" : "New"} ${modules[state.activeModule].label}`;
-  $("#formFields").innerHTML = schemas[sheet].map((field) => {
-    const value = record?.[field] || "";
-    if (sheet === "Users" && field === "profile_image") {
-      const previewUrl = profileImageUrl(value);
-      return `
-        <label class="wide">Profile Image
-          ${previewUrl ? `<img class="image-preview" src="${escapeAttr(previewUrl)}" alt="">` : ""}
-          <input type="hidden" name="profile_image" value="${escapeAttr(value)}">
-          <input name="profile_image_file" type="file" accept="image/*">
-        </label>
-      `;
-    }
-    const wide = ["notes", "address", "issue_description", "checklist_results", "issues_found"].includes(field) ? "wide" : "";
-    const input = wide
-      ? `<textarea name="${field}">${escapeHtml(value)}</textarea>`
-      : `<input name="${field}" value="${escapeAttr(value)}">`;
-    return `<label class="${wide}">${humanize(field)}${input}</label>`;
-  }).join("");
+  if (sheet === "Users") {
+    await ensureUserFormLookups();
+    $("#formFields").innerHTML = renderUserForm(record);
+    $("#formFields").querySelector("[name='phone_number']")?.addEventListener("input", formatPhoneInput);
+  } else {
+    $("#formFields").innerHTML = schemas[sheet].map((field) => {
+      const value = record?.[field] || "";
+      const wide = ["notes", "address", "issue_description", "checklist_results", "issues_found"].includes(field) ? "wide" : "";
+      const input = wide
+        ? `<textarea name="${field}">${escapeHtml(value)}</textarea>`
+        : `<input name="${field}" value="${escapeAttr(value)}">`;
+      return `<label class="${wide}">${humanize(field)}${input}</label>`;
+    }).join("");
+  }
   $("#recordDialog").showModal();
 }
 
 async function saveRecord(event) {
   event.preventDefault();
-  const sheet = modules[state.activeModule].sheet;
-  const form = new FormData($("#recordForm"));
-  const record = {};
-  schemas[sheet].forEach((field) => {
-    record[field] = form.get(field) || "";
-  });
-  if (sheet === "Users") {
-    const imageFile = form.get("profile_image_file");
-    if (imageFile && imageFile.size) {
-      const uploaded = await uploadDashboardFile(imageFile);
-      record.profile_image = uploaded.directUrl || uploaded.url;
+  try {
+    const sheet = modules[state.activeModule].sheet;
+    const form = new FormData($("#recordForm"));
+    const record = {};
+    if (sheet === "Users") {
+      const password = String(form.get("password") || "");
+      const confirmPassword = String(form.get("confirm_password") || "");
+      if (!state.editingRecord && !password) throw new Error("Password is required");
+      if (password !== confirmPassword) throw new Error("Passwords do not match");
+      if (state.editingRecord?.user_id) record.user_id = state.editingRecord.user_id;
+      ["username", "full_name", "user_role", "profile_image", "email", "phone_number", "business_id", "location_id", "account_status"].forEach((field) => {
+        record[field] = form.get(field) || "";
+      });
+      if (password) record.password = password;
+      const imageFile = form.get("profile_image_file");
+      if (imageFile && imageFile.size) {
+        const uploaded = await uploadDashboardFile(imageFile);
+        record.profile_image = uploaded.directUrl || uploaded.url;
+      }
+    } else {
+      schemas[sheet].forEach((field) => {
+        record[field] = form.get(field) || "";
+      });
     }
+    await api("upsert", { sheet, record });
+    invalidateSheet(sheet);
+    $("#recordDialog").close();
+    await loadSheet(sheet);
+  } catch (error) {
+    window.alert(error.message);
   }
-  await api("upsert", { sheet, record });
+}
+
+async function deleteRecord(id) {
+  const sheet = modules[state.activeModule].sheet;
+  if (sheet !== "Users" || !isAdmin()) return;
+  const row = (state.records.Users || []).find((item) => item.user_id === id);
+  const name = row?.full_name || row?.username || id;
+  if (!window.confirm(`Delete user ${name}?`)) return;
+  await api("archive", { sheet, id });
   invalidateSheet(sheet);
-  $("#recordDialog").close();
   await loadSheet(sheet);
+}
+
+async function ensureUserFormLookups() {
+  await Promise.all([
+    refreshSheet("Businesses").catch(() => []),
+    refreshSheet("Locations").catch(() => [])
+  ]);
+}
+
+function renderUserForm(record) {
+  return userFormFields.map((field) => renderUserField(field, record)).join("");
+}
+
+function renderUserField(field, record) {
+  const value = record?.[field] || "";
+  if (field === "profile_image") {
+    const previewUrl = profileImageUrl(value);
+    return `
+      <label class="wide">Profile Image
+        ${previewUrl ? `<img class="image-preview" src="${escapeAttr(previewUrl)}" alt="">` : ""}
+        <input type="hidden" name="profile_image" value="${escapeAttr(value)}">
+        <input name="profile_image_file" type="file" accept="image/*">
+      </label>
+    `;
+  }
+  if (field === "password" || field === "confirm_password") {
+    const required = state.editingRecord ? "" : " required";
+    const autocomplete = field === "password" ? "new-password" : "new-password";
+    return `<label>${humanize(field)}<input name="${field}" type="password" autocomplete="${autocomplete}"${required}></label>`;
+  }
+  if (field === "business_id") {
+    return `<label>Business ID${selectInput(field, value, businessOptions(), "Select business")}</label>`;
+  }
+  if (field === "location_id") {
+    return `<label>Location ID${selectInput(field, value, locationOptions(), "Select location")}</label>`;
+  }
+  if (field === "account_status") {
+    return `<label>Status${selectInput(field, value || "active", userStatusOptions, "Select status")}</label>`;
+  }
+  if (field === "user_role") {
+    return `<label>User Role${selectInput(field, value || "Operator", userRoleOptions.map((role) => [role, role]), "Select role")}</label>`;
+  }
+  const type = field === "email" ? "email" : field === "phone_number" ? "tel" : "text";
+  const required = ["username", "full_name"].includes(field) ? " required" : "";
+  const maxlength = field === "phone_number" ? " maxlength=\"12\"" : "";
+  const placeholder = field === "phone_number" ? " placeholder=\"xxx-xxx-xxxx\"" : "";
+  return `<label>${humanize(field)}<input name="${field}" type="${type}" value="${escapeAttr(value)}"${required}${maxlength}${placeholder}></label>`;
+}
+
+function businessOptions() {
+  return (state.records.Businesses || []).map((item) => [item.business_id, `${item.business_id} - ${item.business_name || "Business"}`]);
+}
+
+function locationOptions() {
+  return (state.records.Locations || []).map((item) => [item.location_id, `${item.location_id} - ${item.location_name || "Location"}`]);
+}
+
+function selectInput(name, value, options, placeholder) {
+  const optionHtml = options.map(([optionValue, label]) => `<option value="${escapeAttr(optionValue)}"${String(optionValue) === String(value) ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  return `<select name="${name}" required><option value="">${escapeHtml(placeholder)}</option>${optionHtml}</select>`;
+}
+
+function formatPhoneInput(event) {
+  const digits = event.target.value.replace(/\D/g, "").slice(0, 10);
+  event.target.value = [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 10)].filter(Boolean).join("-");
 }
 
 async function uploadDashboardFile(file) {
@@ -414,6 +521,18 @@ function extractDriveFileId(url) {
   const text = String(url || "");
   const match = text.match(/\/d\/([^/?]+)/) || text.match(/[?&]id=([^&]+)/);
   return match ? decodeURIComponent(match[1]) : "";
+}
+
+function statusFieldFor(sheet) {
+  if (sheet === "Users") return "account_status";
+  if (sheet === "Businesses") return "business_status";
+  if (sheet === "Forklifts") return "forklift_status";
+  if (sheet === "Certifications") return "status";
+  return "status";
+}
+
+function isAdmin() {
+  return state.session?.user?.user_role === "Admin";
 }
 
 function escapeHtml(value) {
