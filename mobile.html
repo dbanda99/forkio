@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Forkio Mobile</title>
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./mobile.css">
+  </head>
+  <body>
+    <main class="mobile-shell">
+      <header class="mobile-header">
+        <img src="./assets/Text-Logo.png" alt="Forkio">
+        <button id="mobileLogout" class="ghost-btn hidden">Sign out</button>
+      </header>
+
+      <section id="mobileLogin" class="mobile-panel">
+        <h1>Operator Sign In</h1>
+        <form id="mobileLoginForm" class="stack">
+          <label>Username<input id="mobileUsername" required autocomplete="username"></label>
+          <label>Password<input id="mobilePassword" type="password" required autocomplete="current-password"></label>
+          <button class="primary-btn">Sign in</button>
+          <p id="mobileError" class="error-text"></p>
+        </form>
+      </section>
+
+      <section id="forkliftList" class="mobile-panel hidden">
+        <h1>Assigned Forklifts</h1>
+        <div id="mobileForklifts" class="mobile-list"></div>
+      </section>
+
+      <section id="inspectionPanel" class="mobile-panel hidden">
+        <button id="backToForklifts" class="ghost-btn">Back</button>
+        <h1 id="inspectionTitle">Inspection</h1>
+        <form id="inspectionForm" class="stack">
+          <label>Mileage<input name="mileage" inputmode="numeric" required></label>
+          <div id="checklistFields" class="stack"></div>
+          <label>Issues found<textarea name="issues_found"></textarea></label>
+          <label>Notes<textarea name="notes"></textarea></label>
+          <label>Photo 1<input name="photo_1" type="file" accept="image/*" capture="environment" required></label>
+          <label>Photo 2<input name="photo_2" type="file" accept="image/*" capture="environment" required></label>
+          <label>Overall status
+            <select name="overall_status" required>
+              <option value="passed">Passed</option>
+              <option value="failed">Failed</option>
+              <option value="needs_service">Needs service</option>
+            </select>
+          </label>
+          <label>Signature
+            <canvas id="signaturePad" width="600" height="220"></canvas>
+          </label>
+          <button id="clearSignature" class="ghost-btn" type="button">Clear signature</button>
+          <button class="primary-btn">Submit inspection</button>
+        </form>
+      </section>
+    </main>
+    <script src="./config.js"></script>
+    <script src="./app.js"></script>
+    <script src="./mobile.js"></script>
+  </body>
+</html>

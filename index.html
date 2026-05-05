@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Forkio Dashboard</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main id="loginView" class="login-shell">
+      <section class="login-panel">
+        <img class="login-logo" src="./assets/Text-Logo.png" alt="Forkio">
+        <h1>Forklift operations, inspected and controlled.</h1>
+        <form id="loginForm" class="stack">
+          <label>
+            Username
+            <input id="username" name="username" autocomplete="username" required>
+          </label>
+          <label>
+            Password
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button class="primary-btn" type="submit">Sign in</button>
+          <p id="loginError" class="error-text" role="alert"></p>
+        </form>
+      </section>
+      <aside class="brand-panel">
+        <img src="./assets/Forkio.png" alt="">
+      </aside>
+    </main>
+
+    <main id="appView" class="app-shell hidden">
+      <aside class="sidebar">
+        <div class="brand-lockup">
+          <img src="./assets/Forklift-Icon.png" alt="">
+          <img class="wordmark" src="./assets/Text-Logo.png" alt="Forkio">
+        </div>
+        <nav id="navList" class="nav-list"></nav>
+        <button id="logoutBtn" class="ghost-btn">Sign out</button>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p id="userRole" class="eyebrow"></p>
+            <h1 id="pageTitle">Dashboard</h1>
+          </div>
+          <div class="user-chip">
+            <span id="userName"></span>
+          </div>
+        </header>
+
+        <section id="dashboardModule" class="module">
+          <div id="kpiGrid" class="kpi-grid"></div>
+          <div class="split-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Alerts</h2>
+              </div>
+              <div id="alertList" class="alert-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Recent Inspections</h2>
+              </div>
+              <div id="recentInspections" class="compact-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="tableModule" class="module hidden">
+          <div class="table-actions">
+            <input id="searchInput" placeholder="Search records">
+            <button id="newRecordBtn" class="primary-btn">New record</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead id="tableHead"></thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="recordDialog">
+      <form id="recordForm" method="dialog" class="dialog-card">
+        <div class="panel-head">
+          <h2 id="dialogTitle">Record</h2>
+          <button class="icon-btn" value="cancel" aria-label="Close">x</button>
+        </div>
+        <div id="formFields" class="form-grid"></div>
+        <menu>
+          <button class="ghost-btn" value="cancel">Cancel</button>
+          <button id="saveRecordBtn" class="primary-btn" value="default">Save</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="./config.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

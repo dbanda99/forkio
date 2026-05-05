@@ -1,0 +1,70 @@
+.mobile-shell {
+  min-height: 100vh;
+  max-width: 720px;
+  margin: 0 auto;
+  background: white;
+}
+
+.mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  background: white;
+  border-bottom: 1px solid var(--line);
+}
+
+.mobile-header img {
+  width: 150px;
+}
+
+.mobile-panel {
+  padding: 18px 16px 28px;
+}
+
+.mobile-panel h1 {
+  margin: 0 0 18px;
+  font-size: 1.75rem;
+  line-height: 1.05;
+}
+
+.mobile-list {
+  display: grid;
+  gap: 12px;
+}
+
+.forklift-tile {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.forklift-tile button {
+  margin-top: 7px;
+}
+
+#signaturePad {
+  width: 100%;
+  height: 180px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  touch-action: none;
+  background: white;
+}
+
+.check-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
